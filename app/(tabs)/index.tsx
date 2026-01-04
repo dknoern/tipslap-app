@@ -16,6 +16,10 @@ export default function HomeScreen() {
     router.push('/(tabs)/find');
   };
 
+  const handleAddFunds = () => {
+    router.push('/(tabs)/payment');
+  };
+
   return (
     <ThemedView style={styles.container}>
       <View style={styles.header}>
@@ -52,6 +56,20 @@ export default function HomeScreen() {
           onPress={handleTipNow}>
           <ThemedText style={styles.tipButtonText}>Tip Now</ThemedText>
           <IconSymbol name="chevron.right" size={20} color="#ffffff" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.addFundsButton,
+            {
+              borderColor: colorScheme === 'dark' ? '#38383a' : '#e5e5e7',
+            },
+          ]}
+          onPress={handleAddFunds}>
+          <ThemedText style={[
+            styles.addFundsButtonText,
+            { color: colorScheme === 'dark' ? '#ffffff' : '#000000' }
+          ]}>Add Funds</ThemedText>
         </TouchableOpacity>
       </View>
     </ThemedView>
@@ -106,6 +124,20 @@ const styles = StyleSheet.create({
   tipButtonText: {
     color: '#ffffff',
     fontSize: 18,
+    fontWeight: '600',
+  },
+  addFundsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 12,
+  },
+  addFundsButtonText: {
+    fontSize: 16,
     fontWeight: '600',
   },
 });
