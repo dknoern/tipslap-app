@@ -17,6 +17,7 @@ const MAPPING = {
   'chevron.right': 'chevron-right',
   'creditcard': 'credit-card',
   'magnifyingglass': 'search',
+  'person.circle': 'account-circle',
 } as const satisfies Partial<Record<SymbolViewProps['name'], ComponentProps<typeof MaterialIcons>['name']>>;
 
 type IconSymbolName = keyof typeof MAPPING;

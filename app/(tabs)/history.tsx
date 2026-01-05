@@ -3,78 +3,12 @@ import { FlatList, Image, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts } from '@/constants/theme';
+import { Transaction, useHistory } from '@/contexts/history-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-
-interface Transaction {
-  id: string;
-  name: string;
-  username: string;
-  amount: number;
-  date: string;
-  avatar: string;
-}
-
-const MOCK_TRANSACTIONS: Transaction[] = [
-  {
-    id: '1',
-    name: 'Shannon Knoernschild',
-    username: '@sck',
-    amount: -5.00,
-    date: '1/4/2026',
-    avatar: 'https://i.pravatar.cc/150?img=1',
-  },
-  {
-    id: '2',
-    name: 'David Knoernschild',
-    username: '@dknoern',
-    amount: -20.00,
-    date: '5/23/2025',
-    avatar: 'https://i.pravatar.cc/150?img=12',
-  },
-  {
-    id: '3',
-    name: 'Megan Knoernschild',
-    username: '@megan',
-    amount: -5.00,
-    date: '4/27/2025',
-    avatar: 'https://i.pravatar.cc/150?img=5',
-  },
-  {
-    id: '4',
-    name: 'Bryan Young',
-    username: '@beyoung1',
-    amount: -2.00,
-    date: '4/25/2025',
-    avatar: 'https://i.pravatar.cc/150?img=13',
-  },
-  {
-    id: '5',
-    name: 'Megan Knoernschild',
-    username: '@megan',
-    amount: -2.00,
-    date: '3/31/2025',
-    avatar: 'https://i.pravatar.cc/150?img=5',
-  },
-  {
-    id: '6',
-    name: 'Funds Added',
-    username: '@dknoern',
-    amount: 10.00,
-    date: '3/31/2025',
-    avatar: 'https://i.pravatar.cc/150?img=12',
-  },
-  {
-    id: '7',
-    name: 'Shannon Knoernschild',
-    username: '@sck',
-    amount: -5.00,
-    date: '3/28/2025',
-    avatar: 'https://i.pravatar.cc/150?img=1',
-  },
-];
 
 export default function TabTwoScreen() {
   const colorScheme = useColorScheme();
+  const { transactions } = useHistory();
 
   const renderTransaction = ({ item }: { item: Transaction }) => {
     const isPositive = item.amount > 0;
@@ -111,7 +45,7 @@ export default function TabTwoScreen() {
         </ThemedText>
 
         <FlatList
-          data={MOCK_TRANSACTIONS}
+          data={transactions}
           renderItem={renderTransaction}
           keyExtractor={(item) => item.id}
           style={styles.transactionList}

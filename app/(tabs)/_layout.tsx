@@ -31,17 +31,22 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="payment"
+        name="account"
         options={{
-          title: 'Payment',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="creditcard" color={color} />,
+          title: 'Account',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.circle" color={color} />,
         }}
       />
-            <Tabs.Screen
+      <Tabs.Screen
+        name="payment"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="find"
         options={{
-          title: 'Find',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="magnifyingglass" color={color} />,
+          href: null,
         }}
       />
     </Tabs>

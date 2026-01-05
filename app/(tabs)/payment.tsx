@@ -7,6 +7,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Toast } from '@/components/toast';
 import { Fonts } from '@/constants/theme';
 import { useBalance } from '@/contexts/balance-context';
+import { useHistory } from '@/contexts/history-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const PRESET_AMOUNTS = [5, 10, 20, 50, 100];
@@ -23,6 +24,7 @@ export default function TabTwoScreen() {
   
   const colorScheme = useColorScheme();
   const { addBalance } = useBalance();
+  const { addTransaction } = useHistory();
   const router = useRouter();
 
   const handleAmountPress = (amount: number) => {
@@ -67,6 +69,15 @@ export default function TabTwoScreen() {
     }
     
     addBalance(amount);
+    
+    addTransaction({
+      name: 'Funds Added',
+      username: '@tipslap',
+      amount: amount,
+      avatar: 'https://i.pravatar.cc/150?img=12',
+      type: 'fund',
+    });
+    
     setToastMessage(`$${amount.toFixed(2)} added to your balance!`);
     setShowToast(true);
     

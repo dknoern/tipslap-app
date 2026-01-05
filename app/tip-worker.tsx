@@ -7,6 +7,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Toast } from '@/components/toast';
 import { Fonts } from '@/constants/theme';
 import { useBalance } from '@/contexts/balance-context';
+import { useHistory } from '@/contexts/history-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const TIP_AMOUNTS = [1, 2, 5, 10, 20];
@@ -16,6 +17,7 @@ export default function TipWorkerScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const { balance, deductBalance } = useBalance();
+  const { addTransaction } = useHistory();
   
   const [selectedAmount, setSelectedAmount] = useState<number | null>(1);
   const [customAmount, setCustomAmount] = useState('');
@@ -52,6 +54,15 @@ export default function TipWorkerScreen() {
     }
     
     deductBalance(tipAmount);
+    
+    addTransaction({
+      name: workerName,
+      username: workerUsername,
+      amount: -tipAmount,
+      avatar: workerAvatar,
+      type: 'tip',
+    });
+    
     setToastMessage(`$${tipAmount.toFixed(2)} tip sent to ${workerName}!`);
     setShowToast(true);
     
