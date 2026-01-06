@@ -18,6 +18,7 @@ const MAPPING = {
   'creditcard': 'credit-card',
   'magnifyingglass': 'search',
   'person.circle': 'account-circle',
+  'qrcode': 'qr-code-scanner',
 } as const satisfies Partial<Record<SymbolViewProps['name'], ComponentProps<typeof MaterialIcons>['name']>>;
 
 type IconSymbolName = keyof typeof MAPPING;

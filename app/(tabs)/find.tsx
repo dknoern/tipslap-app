@@ -1,9 +1,11 @@
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, Image, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Toast } from '@/components/toast';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -19,29 +21,29 @@ interface Worker {
 const MOCK_WORKERS: Worker[] = [
   {
     id: '1',
-    name: 'Shannon Knoernschild',
-    username: '@sck',
+    name: 'Chris Brendler',
+    username: '@cbrendler',
     role: 'Server',
     avatar: 'https://i.pravatar.cc/150?img=1',
   },
   {
     id: '2',
-    name: 'David Knoernschild',
-    username: '@dknoern',
+    name: 'James Galloway',
+    username: '@jgalloway',
     role: 'Barista',
     avatar: 'https://i.pravatar.cc/150?img=12',
   },
   {
     id: '3',
-    name: 'Megan Knoernschild',
-    username: '@megan',
+    name: 'Stacy Menken',
+    username: '@stacy',
     role: 'Server',
     avatar: 'https://i.pravatar.cc/150?img=5',
   },
   {
     id: '4',
-    name: 'Bryan Young',
-    username: '@beyoung1',
+    name: 'Jake Crebs',
+    username: '@jcrebs',
     role: 'Bartender',
     avatar: 'https://i.pravatar.cc/150?img=13',
   },
@@ -49,6 +51,10 @@ const MOCK_WORKERS: Worker[] = [
 
 export default function TipScreen() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [showScanner, setShowScanner] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [permission, requestPermission] = useCameraPermissions();
   const colorScheme = useColorScheme();
   const router = useRouter();
 
@@ -70,6 +76,46 @@ export default function TipScreen() {
     });
   };
 
+  const handleScanPress = async () => {
+    if (!permission) {
+      return;
+    }
+
+    if (!permission.granted) {
+      const result = await requestPermission();
+      if (!result.granted) {
+        setToastMessage('Camera permission is required to scan QR codes');
+        setShowToast(true);
+        return;
+      }
+    }
+
+    setShowScanner(true);
+  };
+
+  const handleBarCodeScanned = ({ data }: { data: string }) => {
+    setShowScanner(false);
+
+    // Extract username from QR code URL (e.g., "tipslap://tip/@dknoern")
+    const match = data.match(/tipslap:\/\/tip\/(@[\w]+)/);
+    if (!match) {
+      setToastMessage('Invalid QR code');
+      setShowToast(true);
+      return;
+    }
+
+    const username = match[1];
+    const worker = MOCK_WORKERS.find((w) => w.username === username);
+
+    if (!worker) {
+      setToastMessage('Worker not found');
+      setShowToast(true);
+      return;
+    }
+
+    handleWorkerPress(worker);
+  };
+
   const renderWorker = ({ item }: { item: Worker }) => {
     return (
       <TouchableOpacity style={styles.workerItem} onPress={() => handleWorkerPress(item)}>
@@ -86,6 +132,13 @@ export default function TipScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <Toast
+        visible={showToast}
+        message={toastMessage}
+        type="error"
+        onHide={() => setShowToast(false)}
+      />
+
       <ThemedText
         type="title"
         style={[styles.title, { fontFamily: Fonts.rounded }]}>
@@ -112,6 +165,9 @@ export default function TipScreen() {
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
+        <TouchableOpacity onPress={handleScanPress}>
+          <IconSymbol name="qrcode" size={24} color="#007AFF" />
+        </TouchableOpacity>
       </View>
 
       <ThemedText style={styles.sectionTitle}>Available Workers</ThemedText>
@@ -126,6 +182,37 @@ export default function TipScreen() {
           <ThemedText style={styles.emptyText}>No workers found</ThemedText>
         }
       />
+
+      <Modal
+        visible={showScanner}
+        animationType="slide"
+        onRequestClose={() => setShowScanner(false)}>
+        <View style={styles.scannerContainer}>
+          <CameraView
+            style={styles.camera}
+            facing="back"
+            onBarcodeScanned={handleBarCodeScanned}
+            barcodeScannerSettings={{
+              barcodeTypes: ['qr'],
+            }}>
+            <View style={styles.scannerOverlay}>
+              <View style={styles.scannerHeader}>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setShowScanner(false)}>
+                  <ThemedText style={styles.closeButtonText}>Cancel</ThemedText>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.scannerFrame}>
+                <View style={styles.scannerCorner} />
+              </View>
+              <ThemedText style={styles.scannerText}>
+                Scan worker's QR code
+              </ThemedText>
+            </View>
+          </CameraView>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -201,5 +288,47 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.6,
     marginTop: 40,
+  },
+  scannerContainer: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  camera: {
+    flex: 1,
+  },
+  scannerOverlay: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  scannerHeader: {
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  closeButton: {
+    alignSelf: 'flex-start',
+  },
+  closeButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  scannerFrame: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scannerCorner: {
+    width: 250,
+    height: 250,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    borderRadius: 12,
+  },
+  scannerText: {
+    color: '#ffffff',
+    fontSize: 18,
+    textAlign: 'center',
+    marginBottom: 100,
   },
 });

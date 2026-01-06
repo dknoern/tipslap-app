@@ -20,8 +20,8 @@ const HistoryContext = createContext<HistoryContextType | undefined>(undefined);
 const INITIAL_TRANSACTIONS: Transaction[] = [
   {
     id: '1',
-    name: 'Shannon Knoernschild',
-    username: '@sck',
+    name: 'Chris Brendler',
+    username: '@cbrendler',
     amount: -5.00,
     date: '1/4/2026',
     avatar: 'https://i.pravatar.cc/150?img=1',
@@ -29,8 +29,8 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
   },
   {
     id: '2',
-    name: 'David Knoernschild',
-    username: '@dknoern',
+    name: 'James Galloway',
+    username: '@jgalloway',
     amount: -20.00,
     date: '5/23/2025',
     avatar: 'https://i.pravatar.cc/150?img=12',
@@ -38,8 +38,8 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
   },
   {
     id: '3',
-    name: 'Megan Knoernschild',
-    username: '@megan',
+    name: 'Stacy Menken',
+    username: '@stacy',
     amount: -5.00,
     date: '4/27/2025',
     avatar: 'https://i.pravatar.cc/150?img=5',
