@@ -29,7 +29,7 @@ export default function HomeScreen() {
           Welcome, James
         </ThemedText>
         <ThemedText style={styles.subtitle}>
-          Easily tip service workers with just a few taps
+          Tip for great service with just a few taps.
         </ThemedText>
       </View>
 

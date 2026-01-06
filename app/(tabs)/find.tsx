@@ -28,8 +28,8 @@ const MOCK_WORKERS: Worker[] = [
   },
   {
     id: '2',
-    name: 'James Galloway',
-    username: '@jgalloway',
+    name: 'James Gallow',
+    username: '@jgallow',
     role: 'Barista',
     avatar: 'https://i.pravatar.cc/150?img=12',
   },

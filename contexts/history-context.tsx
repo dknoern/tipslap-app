@@ -29,8 +29,8 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
   },
   {
     id: '2',
-    name: 'James Galloway',
-    username: '@jgalloway',
+    name: 'James Gallow',
+    username: '@jgallow',
     amount: -20.00,
     date: '5/23/2025',
     avatar: 'https://i.pravatar.cc/150?img=12',
