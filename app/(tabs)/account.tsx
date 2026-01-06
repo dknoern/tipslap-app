@@ -10,10 +10,10 @@ export default function AccountScreen() {
   const colorScheme = useColorScheme();
 
   const userProfile = {
-    name: 'David Knoernschild',
-    username: '@dknoern',
+    name: 'James Galloway',
+    username: '@jgalloway',
     avatar: 'https://i.pravatar.cc/150?img=12',
-    tipUrl: 'tipslap://tip/@dknoern',
+    tipUrl: 'tipslap://tip/@jgalloway',
   };
 
   const handleSignOut = () => {

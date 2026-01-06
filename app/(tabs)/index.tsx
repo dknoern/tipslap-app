@@ -26,7 +26,7 @@ export default function HomeScreen() {
         <ThemedText
           type="title"
           style={[styles.welcomeTitle, { fontFamily: Fonts.rounded }]}>
-          Welcome, David
+          Welcome, James
         </ThemedText>
         <ThemedText style={styles.subtitle}>
           Easily tip service workers with just a few taps
