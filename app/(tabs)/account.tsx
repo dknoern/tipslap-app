@@ -1,4 +1,4 @@
-import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { ThemedText } from '@/components/themed-text';
@@ -22,13 +22,16 @@ export default function AccountScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText
-        type="title"
-        style={[styles.title, { fontFamily: Fonts.rounded }]}>
-        My Account
-      </ThemedText>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
+        <ThemedText
+          type="title"
+          style={[styles.title, { fontFamily: Fonts.rounded }]}>
+          My Account
+        </ThemedText>
 
-      <View style={styles.profileCard}>
+        <View style={styles.profileCard}>
         <Image source={{ uri: userProfile.avatar }} style={styles.avatar} />
         
         <ThemedText style={styles.name}>{userProfile.name}</ThemedText>
@@ -70,7 +73,8 @@ export default function AccountScreen() {
           onPress={handleSignOut}>
           <ThemedText style={styles.signOutText}>Sign Out</ThemedText>
         </TouchableOpacity>
-      </View>
+        </View>
+      </ScrollView>
     </ThemedView>
   );
 }
@@ -78,13 +82,16 @@ export default function AccountScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
     padding: 20,
     paddingTop: 60,
+    paddingBottom: 40,
   },
   title: {
     fontSize: 34,
     fontWeight: 'bold',
-    marginBottom: 30,
+    marginBottom: 20,
     textAlign: 'center',
   },
   profileCard: {
@@ -101,6 +108,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 8,
+    paddingTop: 16,
   },
   username: {
     fontSize: 18,
