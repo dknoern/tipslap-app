@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -10,21 +10,32 @@ import { useBalance } from '@/contexts/balance-context';
 import { useHistory } from '@/contexts/history-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+// Only import Stripe on native platforms
+let useStripe: any = () => ({ initPaymentSheet: async () => ({}), presentPaymentSheet: async () => ({}) });
+if (Platform.OS !== 'web') {
+  const stripe = require('@stripe/stripe-react-native');
+  useStripe = stripe.useStripe;
+}
+
+// Replace with your backend API endpoint
+const API_URL = 'https://your-backend-api.com';
+
+// Set to true to enable demo mode (bypasses Stripe, simulates successful payment)
+const DEMO_MODE = true;
+
 const PRESET_AMOUNTS = [5, 10, 20, 50, 100];
 
 export default function TabTwoScreen() {
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
-  const [securityCode, setSecurityCode] = useState('');
-  const [zipCode, setZipCode] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [loading, setLoading] = useState(false);
   
   const colorScheme = useColorScheme();
   const { addBalance } = useBalance();
   const { addTransaction } = useHistory();
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const router = useRouter();
 
   const handleAmountPress = (amount: number) => {
@@ -35,7 +46,67 @@ export default function TabTwoScreen() {
     setSelectedAmount(-1);
   };
 
-  const handleSubmitPayment = () => {
+  const initializePaymentSheet = async (amount: number) => {
+    setLoading(true);
+    
+    // Demo mode: simulate successful initialization
+    if (DEMO_MODE) {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
+      setLoading(false);
+      return true;
+    }
+    
+    try {
+      // Call your backend to create a PaymentIntent
+      // This is a placeholder - you'll need to implement your backend endpoint
+      const response = await fetch(`${API_URL}/create-payment-intent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: Math.round(amount * 100), // Convert to cents
+          currency: 'usd',
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const { paymentIntent, ephemeralKey, customer } = data;
+      
+      const { error } = await initPaymentSheet({
+        merchantDisplayName: 'TipSlap',
+        customerId: customer,
+        customerEphemeralKeySecret: ephemeralKey,
+        paymentIntentClientSecret: paymentIntent,
+        allowsDelayedPaymentMethods: false,
+        defaultBillingDetails: {
+          name: 'James Gallow',
+        },
+      });
+      
+      if (error) {
+        setToastMessage(error.message || 'Failed to initialize payment');
+        setShowToast(true);
+        setLoading(false);
+        return false;
+      }
+      
+      setLoading(false);
+      return true;
+    } catch (error) {
+      console.error('Payment initialization error:', error);
+      setToastMessage('Backend not configured. Set DEMO_MODE to true or configure your Stripe backend.');
+      setShowToast(true);
+      setLoading(false);
+      return false;
+    }
+  };
+
+  const handleSubmitPayment = async () => {
     const amount = selectedAmount === -1 ? parseFloat(customAmount) : selectedAmount;
     
     if (!amount || amount <= 0 || isNaN(amount)) {
@@ -44,30 +115,37 @@ export default function TabTwoScreen() {
       return;
     }
     
-    if (!cardNumber || cardNumber.length < 15) {
-      setToastMessage('Please enter a valid card number');
+    // Check if running on web
+    if (Platform.OS === 'web') {
+      setToastMessage('Payment processing is only available on mobile devices. Please use the iOS or Android app.');
       setShowToast(true);
       return;
     }
     
-    if (!expiryDate || !expiryDate.match(/^\d{2}\/\d{2}$/)) {
-      setToastMessage('Please enter a valid expiry date (MM/YY)');
-      setShowToast(true);
-      return;
+    // Demo mode: simulate successful payment
+    if (DEMO_MODE) {
+      setLoading(true);
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate payment processing
+      setLoading(false);
+      // Continue to success flow below
+    } else {
+      // Initialize payment sheet
+      const initialized = await initializePaymentSheet(amount);
+      if (!initialized) return;
+      
+      // Present payment sheet
+      const { error } = await presentPaymentSheet();
+      
+      if (error) {
+        if (error.code !== 'Canceled') {
+          setToastMessage(error.message || 'Payment failed');
+          setShowToast(true);
+        }
+        return;
+      }
     }
     
-    if (!securityCode || securityCode.length < 3) {
-      setToastMessage('Please enter a valid security code');
-      setShowToast(true);
-      return;
-    }
-    
-    if (!zipCode || zipCode.length < 5) {
-      setToastMessage('Please enter a valid ZIP code');
-      setShowToast(true);
-      return;
-    }
-    
+    // Payment successful
     addBalance(amount);
     
     addTransaction({
@@ -168,102 +246,28 @@ export default function TabTwoScreen() {
       {selectedAmount !== null && (
         <View style={styles.card}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Payment Details
+            Payment Method
           </ThemedText>
           <ThemedText style={styles.sectionDescription}>
-            Enter your payment information
+            {DEMO_MODE ? 'Demo mode - payment will be simulated' : 'Secure payment powered by Stripe'}
           </ThemedText>
 
-          <View style={styles.formGroup}>
-            <ThemedText style={styles.label}>Card number</ThemedText>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colorScheme === 'dark' ? '#1c1c1e' : '#ffffff',
-                  color: colorScheme === 'dark' ? '#ffffff' : '#000000',
-                  borderColor: colorScheme === 'dark' ? '#3a3a3c' : '#e5e5e7',
-                },
-              ]}
-              placeholder="1234 1234 1234 1234"
-              placeholderTextColor="#999"
-              keyboardType="number-pad"
-              value={cardNumber}
-              onChangeText={setCardNumber}
-              maxLength={19}
-            />
-          </View>
-
-          <View style={styles.formRow}>
-            <View style={styles.formGroupHalf}>
-              <ThemedText style={styles.label}>Expiration date</ThemedText>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colorScheme === 'dark' ? '#1c1c1e' : '#ffffff',
-                    color: colorScheme === 'dark' ? '#ffffff' : '#000000',
-                    borderColor: colorScheme === 'dark' ? '#3a3a3c' : '#e5e5e7',
-                  },
-                ]}
-                placeholder="MM / YY"
-                placeholderTextColor="#999"
-                keyboardType="default"
-                value={expiryDate}
-                onChangeText={setExpiryDate}
-                maxLength={5}
-              />
-            </View>
-
-            <View style={styles.formGroupHalf}>
-              <ThemedText style={styles.label}>Security code</ThemedText>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colorScheme === 'dark' ? '#1c1c1e' : '#ffffff',
-                    color: colorScheme === 'dark' ? '#ffffff' : '#000000',
-                    borderColor: colorScheme === 'dark' ? '#3a3a3c' : '#e5e5e7',
-                  },
-                ]}
-                placeholder="CVC"
-                placeholderTextColor="#999"
-                keyboardType="number-pad"
-                value={securityCode}
-                onChangeText={setSecurityCode}
-                maxLength={4}
-                secureTextEntry
-              />
-            </View>
-          </View>
-
-          <View style={styles.formGroup}>
-            <ThemedText style={styles.label}>ZIP code</ThemedText>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colorScheme === 'dark' ? '#1c1c1e' : '#ffffff',
-                  color: colorScheme === 'dark' ? '#ffffff' : '#000000',
-                  borderColor: colorScheme === 'dark' ? '#3a3a3c' : '#e5e5e7',
-                },
-              ]}
-              placeholder="12345"
-              placeholderTextColor="#999"
-              keyboardType="number-pad"
-              value={zipCode}
-              onChangeText={setZipCode}
-              maxLength={5}
-            />
-          </View>
-
           <TouchableOpacity
-            style={styles.submitButton}
-            onPress={handleSubmitPayment}>
-            <ThemedText style={styles.submitButtonText}>
-              Pay ${getPaymentAmount().toFixed(2)}
-            </ThemedText>
+            style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+            onPress={handleSubmitPayment}
+            disabled={loading}>
+            {loading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <ThemedText style={styles.submitButtonText}>
+                Add ${getPaymentAmount().toFixed(2)} with Stripe
+              </ThemedText>
+            )}
           </TouchableOpacity>
+          
+          <ThemedText style={styles.secureText}>
+            🔒 Your payment information is secure and encrypted
+          </ThemedText>
         </View>
       )}
       </ScrollView>
@@ -359,15 +363,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   submitButton: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#635BFF',
     borderRadius: 12,
     paddingVertical: 18,
     alignItems: 'center',
     marginTop: 8,
   },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
   submitButtonText: {
     color: '#ffffff',
     fontSize: 18,
     fontWeight: '600',
+  },
+  secureText: {
+    fontSize: 12,
+    opacity: 0.6,
+    textAlign: 'center',
+    marginTop: 16,
   },
 });

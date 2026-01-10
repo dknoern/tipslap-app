@@ -1,23 +1,27 @@
+import { useRouter } from 'expo-router';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Fonts } from '@/constants/theme';
+import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function AccountScreen() {
   const colorScheme = useColorScheme();
+  const { user, logout } = useAuth();
+  const router = useRouter();
 
   const userProfile = {
-    name: 'James Gallow',
-    username: '@jgallow',
-    avatar: 'https://i.pravatar.cc/150?img=12',
-    tipUrl: 'tipslap://tip/@jgallow',
+    name: user?.fullName || 'James Gallow',
+    username: user?.alias || '@jgallow',
+    avatar: user?.avatar || 'https://i.pravatar.cc/150?img=12',
+    tipUrl: `tipslap://tip/${user?.alias || '@jgallow'}`,
   };
 
   const handleSignOut = () => {
-    // TODO: Wire up sign out functionality
+    logout();
+    router.replace('/login');
   };
 
   return (
@@ -25,11 +29,7 @@ export default function AccountScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        <ThemedText
-          type="title"
-          style={[styles.title, { fontFamily: Fonts.rounded }]}>
-          My Account
-        </ThemedText>
+
 
         <View style={styles.profileCard}>
         <Image source={{ uri: userProfile.avatar }} style={styles.avatar} />
