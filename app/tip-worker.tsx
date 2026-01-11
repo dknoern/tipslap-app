@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Image, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
+import { Avatar } from '@/components/avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Toast } from '@/components/toast';
@@ -27,7 +28,9 @@ export default function TipWorkerScreen() {
 
   const workerName = params.name as string;
   const workerUsername = params.username as string;
-  const workerAvatar = params.avatar as string;
+  const workerAvatar = (params.avatar as string) || null;
+  
+  console.log('Tip worker params:', { workerName, workerUsername, workerAvatar });
 
   const handleTipAmountSelect = (amount: number | 'custom') => {
     if (amount === 'custom') {
@@ -59,7 +62,7 @@ export default function TipWorkerScreen() {
       name: workerName,
       username: workerUsername,
       amount: -tipAmount,
-      avatar: workerAvatar,
+      avatar: workerAvatar || '',
       type: 'tip',
     });
     
@@ -87,7 +90,7 @@ export default function TipWorkerScreen() {
       />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Image source={{ uri: workerAvatar }} style={styles.avatar} />
+          <Avatar uri={workerAvatar} name={workerName} size={120} />
           <ThemedText style={[styles.name, { fontFamily: Fonts.rounded }]}>
             {workerName}
           </ThemedText>
@@ -195,12 +198,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 32,
-  },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    marginBottom: 16,
+    gap: 16,
   },
   name: {
     fontSize: 28,

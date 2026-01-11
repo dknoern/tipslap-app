@@ -5,7 +5,7 @@ export interface User {
   phoneNumber: string;
   alias: string;
   fullName: string;
-  avatar?: string;
+  avatar?: string | null;
   token?: string;
   profileComplete?: boolean;
   balance?: number;

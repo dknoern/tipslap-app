@@ -18,6 +18,7 @@ export const API_CONFIG = {
     CREATE_USER: '/users',
     GET_PROFILE: '/users/profile',
     UPDATE_PROFILE: '/users/profile',
+    SEARCH_USERS: '/users/search',
   },
 };
 

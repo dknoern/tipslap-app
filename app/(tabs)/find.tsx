@@ -1,69 +1,92 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { FlatList, Image, Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
+import { Avatar } from '@/components/avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Toast } from '@/components/toast';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { API_CONFIG } from '@/config/api';
 import { Fonts } from '@/constants/theme';
+import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface Worker {
   id: string;
   name: string;
   username: string;
-  role: string;
   avatar: string;
 }
 
-const MOCK_WORKERS: Worker[] = [
-  {
-    id: '1',
-    name: 'Chris Brendler',
-    username: '@cbrendler',
-    role: 'Server',
-    avatar: 'https://i.pravatar.cc/150?img=1',
-  },
-  {
-    id: '2',
-    name: 'James Gallow',
-    username: '@jgallow',
-    role: 'Barista',
-    avatar: 'https://i.pravatar.cc/150?img=12',
-  },
-  {
-    id: '3',
-    name: 'Stacy Menken',
-    username: '@stacy',
-    role: 'Server',
-    avatar: 'https://i.pravatar.cc/150?img=5',
-  },
-  {
-    id: '4',
-    name: 'Jake Crebs',
-    username: '@jcrebs',
-    role: 'Bartender',
-    avatar: 'https://i.pravatar.cc/150?img=13',
-  },
-];
-
 export default function TipScreen() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [loading, setLoading] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [permission, requestPermission] = useCameraPermissions();
+  const { user } = useAuth();
   const colorScheme = useColorScheme();
   const router = useRouter();
 
-  const filteredWorkers = MOCK_WORKERS.filter(
-    (worker) =>
-      worker.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      worker.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      worker.role.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  useEffect(() => {
+    if (searchQuery.trim().length > 0) {
+      searchUsers(searchQuery);
+    } else {
+      setWorkers([]);
+    }
+  }, [searchQuery]);
+
+  const searchUsers = async (query: string) => {
+    if (query.trim().length === 0) {
+      setWorkers([]);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.SEARCH_USERS}?q=${encodeURIComponent(query)}&limit=20`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user?.token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to search users');
+      }
+
+      const responseData = await response.json();
+      console.log('Search API response:', responseData);
+      
+      // API returns users directly in data array
+      const users = responseData.data || [];
+      console.log('Extracted users:', users);
+      
+      const searchResults = users.map((u: any) => ({
+        id: u.id,
+        name: u.fullName,
+        username: `@${u.alias}`,
+        avatar: u.avatarUrl || null,
+      }));
+      
+      console.log('Mapped search results:', searchResults);
+      setWorkers(searchResults);
+    } catch (error) {
+      console.error('Search error:', error);
+      setToastMessage('Failed to search users');
+      setShowToast(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleWorkerPress = (worker: Worker) => {
     router.push({
@@ -71,7 +94,7 @@ export default function TipScreen() {
       params: {
         name: worker.name,
         username: worker.username,
-        avatar: worker.avatar,
+        avatar: worker.avatar || '',
       },
     });
   };
@@ -105,25 +128,25 @@ export default function TipScreen() {
     }
 
     const username = match[1];
-    const worker = MOCK_WORKERS.find((w) => w.username === username);
-
-    if (!worker) {
-      setToastMessage('Worker not found');
-      setShowToast(true);
-      return;
-    }
-
-    handleWorkerPress(worker);
+    
+    // Navigate directly with the scanned username
+    router.push({
+      pathname: '/tip-worker',
+      params: {
+        username: username,
+      },
+    });
   };
 
   const renderWorker = ({ item }: { item: Worker }) => {
     return (
       <TouchableOpacity style={styles.workerItem} onPress={() => handleWorkerPress(item)}>
-        <Image source={{ uri: item.avatar }} style={styles.avatar} />
+        <View style={styles.avatarContainer}>
+          <Avatar uri={item.avatar} name={item.name} size={56} />
+        </View>
         <View style={styles.workerInfo}>
           <ThemedText style={styles.workerName}>{item.name}</ThemedText>
           <ThemedText style={styles.workerUsername}>{item.username}</ThemedText>
-          <ThemedText style={styles.workerRole}>{item.role}</ThemedText>
         </View>
         <IconSymbol name="chevron.right" size={20} color="#999" />
       </TouchableOpacity>
@@ -170,18 +193,32 @@ export default function TipScreen() {
         </TouchableOpacity>
       </View>
 
-      <ThemedText style={styles.sectionTitle}>Available Workers</ThemedText>
+      {searchQuery.trim().length > 0 && (
+        <ThemedText style={styles.sectionTitle}>
+          {loading ? 'Searching...' : `${workers.length} ${workers.length === 1 ? 'result' : 'results'}`}
+        </ThemedText>
+      )}
 
-      <FlatList
-        data={filteredWorkers}
-        renderItem={renderWorker}
-        keyExtractor={(item) => item.id}
-        style={styles.workerList}
-        contentContainerStyle={styles.workerListContent}
-        ListEmptyComponent={
-          <ThemedText style={styles.emptyText}>No workers found</ThemedText>
-        }
-      />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#635BFF" />
+        </View>
+      ) : (
+        <FlatList
+          data={workers}
+          renderItem={renderWorker}
+          keyExtractor={(item) => item.id}
+          style={styles.workerList}
+          contentContainerStyle={styles.workerListContent}
+          ListEmptyComponent={
+            searchQuery.trim().length > 0 ? (
+              <ThemedText style={styles.emptyText}>No users found</ThemedText>
+            ) : (
+              <ThemedText style={styles.emptyText}>Search for users by name or alias</ThemedText>
+            )
+          }
+        />
+      )}
 
       <Modal
         visible={showScanner}
@@ -260,10 +297,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E7',
   },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  avatarContainer: {
     marginRight: 16,
   },
   workerInfo: {
@@ -279,10 +313,11 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     marginBottom: 2,
   },
-  workerRole: {
-    fontSize: 14,
-    opacity: 0.5,
-    fontStyle: 'italic',
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 60,
   },
   emptyText: {
     textAlign: 'center',

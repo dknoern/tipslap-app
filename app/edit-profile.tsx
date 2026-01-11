@@ -18,7 +18,9 @@ export default function EditProfileScreen() {
 
   const [fullName, setFullName] = useState(user?.fullName || '');
   const [alias, setAlias] = useState(user?.alias?.replace('@', '') || '');
-  const [avatarUri, setAvatarUri] = useState(user?.avatar || '');
+  // Filter out placeholder avatar URLs
+  const cleanAvatar = user?.avatar?.includes('pravatar.cc') ? null : user?.avatar;
+  const [avatarUri, setAvatarUri] = useState(cleanAvatar || '');
   const [loading, setLoading] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -163,7 +165,7 @@ export default function EditProfileScreen() {
         ...user!,
         fullName: updatedProfile.fullName,
         alias: `@${updatedProfile.alias}`,
-        avatar: avatarUrl,
+        avatar: avatarUrl?.includes('pravatar.cc') ? null : avatarUrl,
         profileComplete: true,
       };
 

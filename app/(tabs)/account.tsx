@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
-import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
+import { Avatar } from '@/components/avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/contexts/auth-context';
@@ -15,7 +16,7 @@ export default function AccountScreen() {
   const userProfile = {
     name: user?.fullName || 'James Gallow',
     username: user?.alias || '@jgallow',
-    avatar: user?.avatar || 'https://i.pravatar.cc/150?img=12',
+    avatar: user?.avatar || null,
     tipUrl: `tipslap://tip/${user?.alias || '@jgallow'}`,
   };
 
@@ -36,7 +37,7 @@ export default function AccountScreen() {
 
 
         <View style={styles.profileCard}>
-        <Image source={{ uri: userProfile.avatar }} style={styles.avatar} />
+        <Avatar uri={userProfile.avatar} name={userProfile.name} size={120} />
         
         <ThemedText style={styles.name}>{userProfile.name}</ThemedText>
         <ThemedText style={styles.username}>{userProfile.username}</ThemedText>
@@ -113,12 +114,6 @@ const styles = StyleSheet.create({
   profileCard: {
     alignItems: 'center',
     paddingVertical: 32,
-  },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    marginBottom: 20,
   },
   name: {
     fontSize: 28,
