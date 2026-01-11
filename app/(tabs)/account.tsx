@@ -24,6 +24,10 @@ export default function AccountScreen() {
     router.replace('/login');
   };
 
+  const handleEditProfile = () => {
+    router.push('/edit-profile');
+  };
+
   return (
     <ThemedView style={styles.container}>
       <ScrollView
@@ -36,6 +40,18 @@ export default function AccountScreen() {
         
         <ThemedText style={styles.name}>{userProfile.name}</ThemedText>
         <ThemedText style={styles.username}>{userProfile.username}</ThemedText>
+
+        <TouchableOpacity
+          style={[
+            styles.editButton,
+            {
+              backgroundColor: colorScheme === 'dark' ? '#1c1c1e' : '#ffffff',
+              borderColor: colorScheme === 'dark' ? '#38383a' : '#e5e5e7',
+            },
+          ]}
+          onPress={handleEditProfile}>
+          <ThemedText style={styles.editButtonText}>Edit Profile</ThemedText>
+        </TouchableOpacity>
 
         <View style={styles.divider} />
 
@@ -113,7 +129,18 @@ const styles = StyleSheet.create({
   username: {
     fontSize: 18,
     opacity: 0.6,
+    marginBottom: 16,
+  },
+  editButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
     marginBottom: 32,
+  },
+  editButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   divider: {
     width: '100%',

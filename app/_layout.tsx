@@ -38,6 +38,7 @@ export default function RootLayout() {
                 <Stack.Screen name="login" options={{ presentation: 'card', title: 'Log In', headerShown: false }} />
                 <Stack.Screen name="verify-sms" options={{ presentation: 'card', title: 'Verify', headerShown: false }} />
                 <Stack.Screen name="complete-profile" options={{ presentation: 'card', title: 'Complete Profile', headerShown: false }} />
+                <Stack.Screen name="edit-profile" options={{ presentation: 'card', title: 'Edit Profile', headerShown: false }} />
               </Stack>
               <StatusBar style="auto" />
             </ThemeProvider>
