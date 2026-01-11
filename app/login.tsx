@@ -63,19 +63,24 @@ export default function LoginScreen() {
     } else {
       try {
         const e164Phone = formatPhoneToE164(cleaned);
-        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.REQUEST_CODE}`, {
+        const url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.REQUEST_CODE}`;
+        const body = { mobileNumber: e164Phone };
+        
+        console.log('Sending request to:', url);
+        console.log('Request body:', body);
+        
+        const response = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            mobileNumber: e164Phone,
-          }),
+          body: JSON.stringify(body),
         });
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to send code');
+          console.error('Request code error response:', errorData);
+          throw new Error(errorData.message || `Failed to send code (${response.status})`);
         }
 
         setLoading(false);
@@ -83,7 +88,6 @@ export default function LoginScreen() {
           pathname: '/verify-sms',
           params: {
             phoneNumber: e164Phone,
-            flow: 'login',
           },
         });
       } catch (error) {
@@ -95,9 +99,6 @@ export default function LoginScreen() {
     }
   };
 
-  const handleSignUp = () => {
-    router.push('/signup');
-  };
 
   return (
     <ThemedView style={styles.container}>
@@ -112,10 +113,10 @@ export default function LoginScreen() {
         <ThemedText
           type="title"
           style={[styles.title, { fontFamily: Fonts.rounded }]}>
-          Welcome Back
+          Welcome to TipSlap
         </ThemedText>
         <ThemedText style={styles.subtitle}>
-          Enter your phone number to log in
+          Enter your phone number to continue
         </ThemedText>
 
         <View style={styles.formGroup}>
@@ -146,28 +147,13 @@ export default function LoginScreen() {
           {loading ? (
             <ActivityIndicator color="#ffffff" />
           ) : (
-            <ThemedText style={styles.buttonText}>Send Verification Code</ThemedText>
+            <ThemedText style={styles.buttonText}>Continue</ThemedText>
           )}
         </TouchableOpacity>
 
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <ThemedText style={styles.dividerText}>or</ThemedText>
-          <View style={styles.dividerLine} />
-        </View>
-
-        <TouchableOpacity
-          style={[
-            styles.secondaryButton,
-            {
-              borderColor: colorScheme === 'dark' ? '#38383a' : '#e5e5e7',
-            },
-          ]}
-          onPress={handleSignUp}>
-          <ThemedText style={styles.secondaryButtonText}>
-            Create New Account
-          </ThemedText>
-        </TouchableOpacity>
+        <ThemedText style={styles.helpText}>
+          We'll send you a verification code to confirm your number
+        </ThemedText>
       </View>
     </ThemedView>
   );
@@ -225,29 +211,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 32,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#e5e5e7',
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    opacity: 0.5,
+  helpText: {
     fontSize: 14,
-  },
-  secondaryButton: {
-    borderRadius: 12,
-    paddingVertical: 18,
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  secondaryButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
+    opacity: 0.6,
+    textAlign: 'center',
+    marginTop: 16,
+    paddingHorizontal: 20,
   },
 });

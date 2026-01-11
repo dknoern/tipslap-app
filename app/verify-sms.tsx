@@ -17,9 +17,6 @@ const MOCK_CODE = '123456'; // For testing
 export default function VerifySMSScreen() {
   const params = useLocalSearchParams<{
     phoneNumber: string;
-    fullName?: string;
-    alias?: string;
-    flow: 'login' | 'signup';
   }>();
   
   const [code, setCode] = useState(['', '', '', '', '', '']);
@@ -74,23 +71,20 @@ export default function VerifySMSScreen() {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       if (codeToVerify === MOCK_CODE) {
-        // Verification successful
+        // Verification successful - mock incomplete profile
         const userData = {
           id: Date.now().toString(),
           phoneNumber: params.phoneNumber,
-          alias: params.alias || '@user',
-          fullName: params.fullName || 'User',
+          alias: '@user',
+          fullName: 'User',
           avatar: 'https://i.pravatar.cc/150?img=12',
+          token: 'mock_token',
+          profileComplete: false,
         };
 
-        if (params.flow === 'signup') {
-          signup(userData);
-        } else {
-          login(userData);
-        }
-
+        login(userData);
         setLoading(false);
-        router.replace('/(tabs)');
+        router.replace('/complete-profile');
       } else {
         setLoading(false);
         setToastMessage('Invalid verification code. Try 123456 for testing.');
@@ -120,57 +114,78 @@ export default function VerifySMSScreen() {
         const verifyData = await verifyResponse.json();
         console.log('Verify response:', verifyData);
         
-        // Step 2: If signup flow and new user, create the user account
-        if (params.flow === 'signup' && verifyData.isNewUser) {
-          const createUserResponse = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CREATE_USER}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${verifyData.token}`,
-            },
-            body: JSON.stringify({
-              fullName: params.fullName,
-              alias: params.alias,
-              canGiveTips: true,
-              canReceiveTips: true,
-            }),
-          });
+        // Extract token and user from nested data object
+        const token = verifyData.data?.token || verifyData.token;
+        const apiUser = verifyData.data?.user || verifyData.user;
+        
+        console.log('Token from verify response:', token);
+        console.log('User from verify response:', apiUser);
+        
+        if (!token) {
+          throw new Error('No token received from server. API response: ' + JSON.stringify(verifyData));
+        }
+        
+        // Step 2: Check if user profile exists
+        const profileResponse = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.GET_PROFILE}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
 
-          if (!createUserResponse.ok) {
-            const errorData = await createUserResponse.json();
-            throw new Error(errorData.message || 'Failed to create user account');
-          }
+        let userData;
+        let needsProfileCompletion = false;
 
-          const createUserData = await createUserResponse.json();
-          console.log('Create user response:', createUserData);
+        if (profileResponse.ok) {
+          const profileData = await profileResponse.json();
+          console.log('Profile response:', profileData);
           
-          // Handle response structure - user data might be at root or nested
-          const userInfo = createUserData.user || createUserData;
-          const userData = {
-            id: userInfo.id,
-            phoneNumber: params.phoneNumber,
-            alias: userInfo.alias ? `@${userInfo.alias}` : (params.alias || '@user'),
-            fullName: userInfo.fullName || params.fullName || 'User',
-            avatar: userInfo.avatarUrl || 'https://i.pravatar.cc/150?img=12',
-          };
+          // Extract profile from nested data object
+          const profile = profileData.data || profileData;
+          
+          // Check if profile is complete (has alias and fullName)
+          const hasAlias = profile.alias && profile.alias.trim() !== '';
+          const hasFullName = profile.fullName && profile.fullName.trim() !== '';
+          needsProfileCompletion = !hasAlias || !hasFullName;
 
-          signup(userData);
+          userData = {
+            id: profile.id,
+            phoneNumber: params.phoneNumber,
+            alias: hasAlias ? `@${profile.alias}` : '@user',
+            fullName: hasFullName ? profile.fullName : 'User',
+            avatar: profile.avatarUrl || 'https://i.pravatar.cc/150?img=12',
+            token: token,
+            profileComplete: !needsProfileCompletion,
+            balance: profile.balance || 0,
+          };
         } else {
-          // Existing user login
-          const userInfo = verifyData.user || verifyData;
-          const userData = {
-            id: userInfo.id,
+          // Profile doesn't exist or error - needs completion
+          needsProfileCompletion = true;
+          userData = {
+            id: apiUser?.id || Date.now().toString(),
             phoneNumber: params.phoneNumber,
-            alias: userInfo.alias ? `@${userInfo.alias}` : '@user',
-            fullName: userInfo.fullName || 'User',
-            avatar: userInfo.avatarUrl || 'https://i.pravatar.cc/150?img=12',
+            alias: '@user',
+            fullName: 'User',
+            avatar: 'https://i.pravatar.cc/150?img=12',
+            token: token,
+            profileComplete: false,
+            balance: apiUser?.balance || 0,
           };
-
-          login(userData);
         }
 
+        // Set user in auth context
+        console.log('Setting user data with token:', userData.token);
+        login(userData);
+
         setLoading(false);
-        router.replace('/(tabs)');
+        
+        // Route based on profile completion status
+        if (needsProfileCompletion) {
+          router.replace('/complete-profile');
+        } else {
+          router.replace('/(tabs)');
+        }
       } catch (error) {
         console.error('Verification error:', error);
         setLoading(false);

@@ -36,8 +36,8 @@ export default function RootLayout() {
                 <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
                 <Stack.Screen name="tip-worker" options={{ presentation: 'card', title: 'Send Tip' }} />
                 <Stack.Screen name="login" options={{ presentation: 'card', title: 'Log In', headerShown: false }} />
-                <Stack.Screen name="signup" options={{ presentation: 'card', title: 'Sign Up', headerShown: false }} />
                 <Stack.Screen name="verify-sms" options={{ presentation: 'card', title: 'Verify', headerShown: false }} />
+                <Stack.Screen name="complete-profile" options={{ presentation: 'card', title: 'Complete Profile', headerShown: false }} />
               </Stack>
               <StatusBar style="auto" />
             </ThemeProvider>

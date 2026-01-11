@@ -5,12 +5,15 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Fonts } from '@/constants/theme';
-import { useBalance } from '@/contexts/balance-context';
+import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function HomeScreen() {
-  const { balance } = useBalance();
+  const { user } = useAuth();
   const colorScheme = useColorScheme();
+  
+  const firstName = user?.fullName?.split(' ')[0] || 'there';
+  const balance = user?.balance || 0;
 
   const handleTipNow = () => {
     router.push('/(tabs)/find');
@@ -26,7 +29,7 @@ export default function HomeScreen() {
         <ThemedText
           type="title"
           style={[styles.welcomeTitle, { fontFamily: Fonts.rounded }]}>
-          Welcome, James
+          Welcome, {firstName}
         </ThemedText>
         <ThemedText style={styles.subtitle}>
           Tip for great service with just a few taps.

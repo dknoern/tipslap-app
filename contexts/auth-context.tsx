@@ -1,4 +1,4 @@
-import React, { createContext, ReactNode, useContext, useState } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 export interface User {
   id: string;
@@ -6,11 +6,15 @@ export interface User {
   alias: string;
   fullName: string;
   avatar?: string;
+  token?: string;
+  profileComplete?: boolean;
+  balance?: number;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isProfileComplete: boolean;
   login: (user: User) => void;
   logout: () => void;
   signup: (user: User) => void;
@@ -18,10 +22,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
   const login = (userData: User) => {
+    setUser(userData);
+  };
+
+  const signup = (userData: User) => {
     setUser(userData);
   };
 
@@ -29,19 +37,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  const signup = (userData: User) => {
-    setUser(userData);
-  };
+  const isProfileComplete = !!user?.profileComplete || (!!user?.alias && user.alias !== '@user' && !!user?.fullName && user.fullName !== 'User');
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: !!user,
-        login,
-        logout,
-        signup,
-      }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isProfileComplete, login, logout, signup }}>
       {children}
     </AuthContext.Provider>
   );
