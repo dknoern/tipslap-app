@@ -5,11 +5,12 @@ import { ActivityIndicator, ScrollView, StyleSheet, TextInput, TouchableOpacity,
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Toast } from '@/components/toast';
+import { API_CONFIG, formatPhoneToE164 } from '@/config/api';
 import { Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-// Mock mode - set to true to bypass actual API calls
-const MOCK_MODE = true;
+// Mock mode - set to false to use actual API
+const MOCK_MODE = false;
 
 export default function SignupScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -87,36 +88,37 @@ export default function SignupScreen() {
       });
     } else {
       try {
-        // TODO: Replace with actual API call
-        const response = await fetch('YOUR_API_URL/send-signup-code', {
+        const e164Phone = formatPhoneToE164(cleaned);
+        
+        // First, request SMS code
+        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.REQUEST_CODE}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            phoneNumber: cleaned,
-            fullName: fullName.trim(),
-            alias: alias,
+            mobileNumber: e164Phone,
           }),
         });
 
         if (!response.ok) {
-          throw new Error('Failed to send code');
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to send code');
         }
 
         setLoading(false);
         router.push({
           pathname: '/verify-sms',
           params: {
-            phoneNumber: cleaned,
+            phoneNumber: e164Phone,
             fullName: fullName.trim(),
-            alias: alias,
+            alias: alias.replace('@', ''), // Remove @ for API
             flow: 'signup',
           },
         });
       } catch (error) {
         console.error('Signup error:', error);
-        setToastMessage('Failed to send verification code. Please try again.');
+        setToastMessage(error instanceof Error ? error.message : 'Failed to send verification code. Please try again.');
         setShowToast(true);
         setLoading(false);
       }
