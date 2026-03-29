@@ -16,7 +16,9 @@ if (Platform.OS !== 'web') {
   StripeProvider = stripe.StripeProvider;
 }
 
-const STRIPE_PUBLISHABLE_KEY = 'pk_test_YOUR_PUBLISHABLE_KEY_HERE';
+// Get your Stripe publishable key from https://dashboard.stripe.com/test/apikeys
+// For testing, use: pk_test_51... (your test key)
+const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_51QsxYjP5Qr2mWTKQmockkey';
 
 export const unstable_settings = {
   anchor: '(tabs)',

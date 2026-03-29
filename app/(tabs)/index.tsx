@@ -1,26 +1,27 @@
-import { router } from 'expo-router';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { router } from "expo-router";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
-import { useAuth } from '@/contexts/auth-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { Fonts } from "@/constants/theme";
+import { useAuth } from "@/contexts/auth-context";
+import { useBalance } from "@/contexts/balance-context";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export default function HomeScreen() {
   const { user } = useAuth();
+  const { balance } = useBalance();
   const colorScheme = useColorScheme();
-  
-  const firstName = user?.fullName?.split(' ')[0] || 'there';
-  const balance = user?.balance || 0;
+
+  const firstName = user?.fullName?.split(" ")[0] || "there";
 
   const handleTipNow = () => {
-    router.push('/(tabs)/find');
+    router.push("/(tabs)/find");
   };
 
   const handleAddFunds = () => {
-    router.push('/(tabs)/payment');
+    router.push("/(tabs)/payment");
   };
 
   return (
@@ -28,7 +29,8 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <ThemedText
           type="title"
-          style={[styles.welcomeTitle, { fontFamily: Fonts.rounded }]}>
+          style={[styles.welcomeTitle, { fontFamily: Fonts.rounded }]}
+        >
           Welcome, {firstName}
         </ThemedText>
         <ThemedText style={styles.subtitle}>
@@ -40,10 +42,11 @@ export default function HomeScreen() {
         style={[
           styles.balanceCard,
           {
-            backgroundColor: colorScheme === 'dark' ? '#1c1c1e' : '#ffffff',
-            borderColor: colorScheme === 'dark' ? '#38383a' : '#e5e5e7',
+            backgroundColor: colorScheme === "dark" ? "#1c1c1e" : "#ffffff",
+            borderColor: colorScheme === "dark" ? "#38383a" : "#e5e5e7",
           },
-        ]}>
+        ]}
+      >
         <ThemedText style={styles.balanceLabel}>Your Balance</ThemedText>
         <ThemedText style={styles.balanceAmount}>
           ${balance.toFixed(2)}
@@ -53,10 +56,11 @@ export default function HomeScreen() {
           style={[
             styles.tipButton,
             {
-              backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : '#1a1a1a',
+              backgroundColor: colorScheme === "dark" ? "#1a1a1a" : "#1a1a1a",
             },
           ]}
-          onPress={handleTipNow}>
+          onPress={handleTipNow}
+        >
           <ThemedText style={styles.tipButtonText}>Tip Now</ThemedText>
           <IconSymbol name="chevron.right" size={20} color="#ffffff" />
         </TouchableOpacity>
@@ -65,14 +69,19 @@ export default function HomeScreen() {
           style={[
             styles.addFundsButton,
             {
-              borderColor: colorScheme === 'dark' ? '#38383a' : '#e5e5e7',
+              borderColor: colorScheme === "dark" ? "#38383a" : "#e5e5e7",
             },
           ]}
-          onPress={handleAddFunds}>
-          <ThemedText style={[
-            styles.addFundsButtonText,
-            { color: colorScheme === 'dark' ? '#ffffff' : '#000000' }
-          ]}>Add Funds</ThemedText>
+          onPress={handleAddFunds}
+        >
+          <ThemedText
+            style={[
+              styles.addFundsButtonText,
+              { color: colorScheme === "dark" ? "#ffffff" : "#000000" },
+            ]}
+          >
+            Add Funds
+          </ThemedText>
         </TouchableOpacity>
       </View>
     </ThemedView>
@@ -90,7 +99,7 @@ const styles = StyleSheet.create({
   },
   welcomeTitle: {
     fontSize: 36,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   subtitle: {
@@ -102,7 +111,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     padding: 24,
-    alignItems: 'center',
+    alignItems: "center",
   },
   balanceLabel: {
     fontSize: 16,
@@ -111,29 +120,29 @@ const styles = StyleSheet.create({
   },
   balanceAmount: {
     fontSize: 48,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 24,
     padding: 40,
   },
   tipButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
     paddingVertical: 16,
     borderRadius: 12,
     gap: 8,
   },
   tipButtonText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   addFundsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
     paddingVertical: 16,
     borderRadius: 12,
     borderWidth: 1,
@@ -141,6 +150,6 @@ const styles = StyleSheet.create({
   },
   addFundsButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

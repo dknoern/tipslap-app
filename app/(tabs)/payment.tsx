@@ -1,41 +1,55 @@
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import {
+    ActivityIndicator,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Toast } from '@/components/toast';
-import { Fonts } from '@/constants/theme';
-import { useBalance } from '@/contexts/balance-context';
-import { useHistory } from '@/contexts/history-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { Toast } from "@/components/toast";
+import { API_CONFIG } from "@/config/api";
+import { Fonts } from "@/constants/theme";
+import { useAuth } from "@/contexts/auth-context";
+import { useBalance } from "@/contexts/balance-context";
+import { useHistory } from "@/contexts/history-context";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 // Only import Stripe on native platforms
-let useStripe: any = () => ({ initPaymentSheet: async () => ({}), presentPaymentSheet: async () => ({}) });
-if (Platform.OS !== 'web') {
-  const stripe = require('@stripe/stripe-react-native');
+let useStripe: any = () => ({
+  createPaymentMethod: async () => ({}),
+  confirmPayment: async () => ({}),
+});
+let CardField: any = () => null;
+if (Platform.OS !== "web") {
+  const stripe = require("@stripe/stripe-react-native");
   useStripe = stripe.useStripe;
+  CardField = stripe.CardField;
 }
 
-// Replace with your backend API endpoint
-const API_URL = 'https://your-backend-api.com';
-
 // Set to true to enable demo mode (bypasses Stripe, simulates successful payment)
-const DEMO_MODE = true;
+const DEMO_MODE = false;
 
-const PRESET_AMOUNTS = [5, 10, 20, 50, 100];
+const PRESET_AMOUNTS = [20, 50, 100];
 
 export default function TabTwoScreen() {
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
-  const [customAmount, setCustomAmount] = useState('');
+  const [customAmount, setCustomAmount] = useState("");
   const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
+  const [toastMessage, setToastMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  
+  const [cardComplete, setCardComplete] = useState(false);
+
   const colorScheme = useColorScheme();
+  const { user } = useAuth();
   const { addBalance } = useBalance();
   const { addTransaction } = useHistory();
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { confirmPayment } = useStripe();
   const router = useRouter();
 
   const handleAmountPress = (amount: number) => {
@@ -46,121 +60,129 @@ export default function TabTwoScreen() {
     setSelectedAmount(-1);
   };
 
-  const initializePaymentSheet = async (amount: number) => {
-    setLoading(true);
-    
-    // Demo mode: simulate successful initialization
-    if (DEMO_MODE) {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
-      setLoading(false);
-      return true;
-    }
-    
+  const processPayment = async (amount: number) => {
     try {
-      // Call your backend to create a PaymentIntent
-      // This is a placeholder - you'll need to implement your backend endpoint
-      const response = await fetch(`${API_URL}/create-payment-intent`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      console.log("Starting payment process for amount:", amount);
+
+      // Step 1: Create payment intent on backend
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/payments/create-payment-intent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${user?.token}`,
+          },
+          body: JSON.stringify({
+            amount: amount, // Send as dollars (backend expects decimal)
+          }),
         },
-        body: JSON.stringify({
-          amount: Math.round(amount * 100), // Convert to cents
-          currency: 'usd',
-        }),
-      });
-      
+      );
+
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+        const errorData = await response.json();
+        console.error("Backend error:", errorData);
+        throw new Error(errorData.message || "Payment failed");
       }
-      
+
       const data = await response.json();
-      const { paymentIntent, ephemeralKey, customer } = data;
-      
-      const { error } = await initPaymentSheet({
-        merchantDisplayName: 'TipSlap',
-        customerId: customer,
-        customerEphemeralKeySecret: ephemeralKey,
-        paymentIntentClientSecret: paymentIntent,
-        allowsDelayedPaymentMethods: false,
-        defaultBillingDetails: {
-          name: 'James Gallow',
-        },
-      });
-      
-      if (error) {
-        setToastMessage(error.message || 'Failed to initialize payment');
-        setShowToast(true);
-        setLoading(false);
-        return false;
+      console.log("Payment intent created:", data);
+
+      // Extract clientSecret from nested response structure
+      const clientSecret = data.data?.clientSecret || data.clientSecret;
+
+      if (!clientSecret) {
+        console.error("Response structure:", JSON.stringify(data, null, 2));
+        throw new Error("No client secret returned from server");
       }
-      
-      setLoading(false);
-      return true;
-    } catch (error) {
-      console.error('Payment initialization error:', error);
-      setToastMessage('Backend not configured. Set DEMO_MODE to true or configure your Stripe backend.');
-      setShowToast(true);
-      setLoading(false);
-      return false;
+
+      console.log("Confirming payment with client secret...");
+
+      // Step 2: Confirm payment with Stripe using the card details
+      const result = await confirmPayment(clientSecret, {
+        paymentMethodType: "Card",
+      });
+
+      console.log("Confirm payment result:", result);
+
+      if (result.error) {
+        console.error("Payment confirmation error:", result.error);
+        throw new Error(result.error.message || "Payment confirmation failed");
+      }
+
+      console.log("Payment intent status:", result.paymentIntent?.status);
+
+      if (result.paymentIntent?.status !== "Succeeded") {
+        throw new Error(
+          `Payment status: ${result.paymentIntent?.status || "unknown"}`,
+        );
+      }
+
+      return { success: true, data: result.paymentIntent };
+    } catch (error: any) {
+      console.error("Payment processing error:", error);
+      return { success: false, error: error.message };
     }
   };
 
   const handleSubmitPayment = async () => {
-    const amount = selectedAmount === -1 ? parseFloat(customAmount) : selectedAmount;
-    
+    const amount =
+      selectedAmount === -1 ? parseFloat(customAmount) : selectedAmount;
+
     if (!amount || amount <= 0 || isNaN(amount)) {
-      setToastMessage('Please select or enter a valid amount');
+      setToastMessage("Please select or enter a valid amount");
       setShowToast(true);
       return;
     }
-    
+
+    if (!cardComplete) {
+      setToastMessage("Please complete your card information");
+      setShowToast(true);
+      return;
+    }
+
     // Check if running on web
-    if (Platform.OS === 'web') {
-      setToastMessage('Payment processing is only available on mobile devices. Please use the iOS or Android app.');
+    if (Platform.OS === "web") {
+      setToastMessage(
+        "Payment processing is only available on mobile devices. Please use the iOS or Android app.",
+      );
       setShowToast(true);
       return;
     }
-    
+
     // Demo mode: simulate successful payment
     if (DEMO_MODE) {
       setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate payment processing
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       setLoading(false);
-      // Continue to success flow below
     } else {
-      // Initialize payment sheet
-      const initialized = await initializePaymentSheet(amount);
-      if (!initialized) return;
-      
-      // Present payment sheet
-      const { error } = await presentPaymentSheet();
-      
-      if (error) {
-        if (error.code !== 'Canceled') {
-          setToastMessage(error.message || 'Payment failed');
-          setShowToast(true);
-        }
+      setLoading(true);
+      const result = await processPayment(amount);
+      setLoading(false);
+
+      if (!result.success) {
+        setToastMessage(result.error || "Payment failed");
+        setShowToast(true);
         return;
       }
     }
-    
+
     // Payment successful
     addBalance(amount);
-    
+
     addTransaction({
-      name: 'Funds Added',
-      username: '@tipslap',
+      name: "Funds Added",
+      username: "@tipslap",
       amount: amount,
-      avatar: 'https://i.pravatar.cc/150?img=12',
-      type: 'fund',
+      avatar: "",
+      type: "fund",
     });
-    
+
     setToastMessage(`$${amount.toFixed(2)} added to your balance!`);
     setShowToast(true);
-    
+
     setTimeout(() => {
-      router.push('/(tabs)');
+      router.push("/(tabs)");
     }, 1500);
   };
 
@@ -179,97 +201,142 @@ export default function TabTwoScreen() {
         type="success"
         onHide={() => setShowToast(false)}
       />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-      <ThemedText
-        type="title"
-        style={[styles.title, { fontFamily: Fonts.rounded }]}>
-        Add Funds
-      </ThemedText>
-
-      <View style={styles.card}>
-        <ThemedText type="subtitle" style={styles.sectionTitle}>
-          Select Amount
-        </ThemedText>
-        <ThemedText style={styles.sectionDescription}>
-          Choose how much to add to your balance
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <ThemedText
+          type="title"
+          style={[styles.title, { fontFamily: Fonts.rounded }]}
+        >
+          Add Funds
         </ThemedText>
 
-        <View style={styles.buttonGrid}>
-          {PRESET_AMOUNTS.map((amount) => (
+        <View style={styles.card}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Select Amount
+          </ThemedText>
+          <ThemedText style={styles.sectionDescription}>
+            Choose how much to add to your balance
+          </ThemedText>
+
+          <View style={styles.buttonGrid}>
+            {PRESET_AMOUNTS.map((amount) => (
+              <TouchableOpacity
+                key={amount}
+                style={[
+                  styles.amountButton,
+                  {
+                    backgroundColor:
+                      colorScheme === "dark" ? "#1c1c1e" : "#ffffff",
+                    borderColor: colorScheme === "dark" ? "#38383a" : "#e5e5e7",
+                  },
+                  selectedAmount === amount && styles.selectedButton,
+                ]}
+                onPress={() => handleAmountPress(amount)}
+              >
+                <ThemedText style={styles.amountText}>${amount}</ThemedText>
+              </TouchableOpacity>
+            ))}
             <TouchableOpacity
-              key={amount}
               style={[
                 styles.amountButton,
                 {
-                  backgroundColor: colorScheme === 'dark' ? '#1c1c1e' : '#ffffff',
-                  borderColor: colorScheme === 'dark' ? '#38383a' : '#e5e5e7',
+                  backgroundColor:
+                    colorScheme === "dark" ? "#1c1c1e" : "#ffffff",
+                  borderColor: colorScheme === "dark" ? "#38383a" : "#e5e5e7",
                 },
-                selectedAmount === amount && styles.selectedButton,
+                selectedAmount === -1 && styles.selectedButton,
               ]}
-              onPress={() => handleAmountPress(amount)}>
-              <ThemedText style={styles.amountText}>${amount}</ThemedText>
+              onPress={handleCustomPress}
+            >
+              <ThemedText style={styles.amountText}>Custom</ThemedText>
             </TouchableOpacity>
-          ))}
-          <TouchableOpacity
-            style={[
-              styles.amountButton,
-              {
-                backgroundColor: colorScheme === 'dark' ? '#1c1c1e' : '#ffffff',
-                borderColor: colorScheme === 'dark' ? '#38383a' : '#e5e5e7',
-              },
-              selectedAmount === -1 && styles.selectedButton,
-            ]}
-            onPress={handleCustomPress}>
-            <ThemedText style={styles.amountText}>Custom</ThemedText>
-          </TouchableOpacity>
+          </View>
+
+          {selectedAmount === -1 && (
+            <TextInput
+              style={[
+                styles.customInput,
+                {
+                  backgroundColor:
+                    colorScheme === "dark" ? "#1c1c1e" : "#f2f2f7",
+                  color: colorScheme === "dark" ? "#ffffff" : "#000000",
+                  borderColor: colorScheme === "dark" ? "#3a3a3c" : "#e5e5e7",
+                },
+              ]}
+              placeholder="Enter custom amount"
+              placeholderTextColor="#999"
+              keyboardType="decimal-pad"
+              value={customAmount}
+              onChangeText={setCustomAmount}
+            />
+          )}
         </View>
 
-        {selectedAmount === -1 && (
-          <TextInput
-            style={[
-              styles.customInput,
-              {
-                backgroundColor: colorScheme === 'dark' ? '#1c1c1e' : '#f2f2f7',
-                color: colorScheme === 'dark' ? '#ffffff' : '#000000',
-                borderColor: colorScheme === 'dark' ? '#3a3a3c' : '#e5e5e7',
-              },
-            ]}
-            placeholder="Enter custom amount"
-            placeholderTextColor="#999"
-            keyboardType="decimal-pad"
-            value={customAmount}
-            onChangeText={setCustomAmount}
-          />
-        )}
-      </View>
+        {selectedAmount !== null && (
+          <View style={styles.card}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Payment Method
+            </ThemedText>
+            <ThemedText style={styles.sectionDescription}>
+              {DEMO_MODE
+                ? "Demo mode - payment will be simulated"
+                : "Enter your card details"}
+            </ThemedText>
 
-      {selectedAmount !== null && (
-        <View style={styles.card}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Payment Method
-          </ThemedText>
-          <ThemedText style={styles.sectionDescription}>
-            {DEMO_MODE ? 'Demo mode - payment will be simulated' : 'Secure payment powered by Stripe'}
-          </ThemedText>
-
-          <TouchableOpacity
-            style={[styles.submitButton, loading && styles.submitButtonDisabled]}
-            onPress={handleSubmitPayment}
-            disabled={loading}>
-            {loading ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <ThemedText style={styles.submitButtonText}>
-                Add ${getPaymentAmount().toFixed(2)} with Stripe
-              </ThemedText>
+            {!DEMO_MODE && Platform.OS !== "web" && (
+              <View
+                style={[
+                  styles.cardFieldContainer,
+                  {
+                    backgroundColor:
+                      colorScheme === "dark" ? "#1c1c1e" : "#ffffff",
+                    borderColor: colorScheme === "dark" ? "#3a3a3c" : "#e5e5e7",
+                  },
+                ]}
+              >
+                <CardField
+                  postalCodeEnabled={true}
+                  placeholders={{
+                    number: "4242 4242 4242 4242",
+                  }}
+                  cardStyle={{
+                    backgroundColor:
+                      colorScheme === "dark" ? "#1c1c1e" : "#ffffff",
+                    textColor: colorScheme === "dark" ? "#ffffff" : "#000000",
+                    placeholderColor: "#999999",
+                  }}
+                  style={styles.cardField}
+                  onCardChange={(cardDetails: any) => {
+                    setCardComplete(cardDetails.complete);
+                  }}
+                />
+              </View>
             )}
-          </TouchableOpacity>
-          
-          <ThemedText style={styles.secureText}>
-            🔒 Your payment information is secure and encrypted
-          </ThemedText>
-        </View>
-      )}
+
+            <TouchableOpacity
+              style={[
+                styles.submitButton,
+                loading && styles.submitButtonDisabled,
+              ]}
+              onPress={handleSubmitPayment}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <ThemedText style={styles.submitButtonText}>
+                  Add ${getPaymentAmount().toFixed(2)}
+                </ThemedText>
+              )}
+            </TouchableOpacity>
+
+            <ThemedText style={styles.secureText}>
+              🔒 Secure payment powered by Stripe
+            </ThemedText>
+          </View>
+        )}
       </ScrollView>
     </ThemedView>
   );
@@ -286,19 +353,19 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 34,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 30,
-    textAlign: 'center',
+    textAlign: "center",
   },
   card: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderRadius: 16,
     padding: 24,
     marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   sectionDescription: {
@@ -307,28 +374,28 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   buttonGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   amountButton: {
-    flexBasis: '30%',
+    flexBasis: "30%",
     minWidth: 100,
     maxWidth: 160,
     height: 80,
     borderRadius: 12,
     borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   selectedButton: {
-    borderColor: '#007AFF',
-    backgroundColor: '#007AFF20',
+    borderColor: "#007AFF",
+    backgroundColor: "#007AFF20",
   },
   amountText: {
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   customInput: {
     borderRadius: 12,
@@ -342,7 +409,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   formRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     marginBottom: 20,
   },
@@ -351,7 +418,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 8,
     opacity: 0.8,
   },
@@ -363,24 +430,35 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   submitButton: {
-    backgroundColor: '#635BFF',
+    backgroundColor: "#635BFF",
     borderRadius: 12,
     paddingVertical: 18,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 8,
   },
   submitButtonDisabled: {
     opacity: 0.6,
   },
   submitButtonText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   secureText: {
     fontSize: 12,
     opacity: 0.6,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 16,
+  },
+  cardFieldContainer: {
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 20,
+    overflow: "hidden",
+  },
+  cardField: {
+    width: "100%",
+    height: 50,
+    marginVertical: 8,
   },
 });

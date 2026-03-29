@@ -1,4 +1,12 @@
-import React, { createContext, ReactNode, useContext, useState } from 'react';
+import React, {
+    createContext,
+    ReactNode,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
+
+import { useAuth } from "@/contexts/auth-context";
 
 interface BalanceContextType {
   balance: number;
@@ -9,7 +17,12 @@ interface BalanceContextType {
 const BalanceContext = createContext<BalanceContextType | undefined>(undefined);
 
 export function BalanceProvider({ children }: { children: ReactNode }) {
-  const [balance, setBalance] = useState(54.00);
+  const { user } = useAuth();
+  const [balance, setBalance] = useState(0);
+
+  useEffect(() => {
+    setBalance(user?.balance ?? 0);
+  }, [user?.balance]);
 
   const deductBalance = (amount: number) => {
     setBalance((prev) => Math.max(0, prev - amount));
@@ -29,7 +42,7 @@ export function BalanceProvider({ children }: { children: ReactNode }) {
 export function useBalance() {
   const context = useContext(BalanceContext);
   if (context === undefined) {
-    throw new Error('useBalance must be used within a BalanceProvider');
+    throw new Error("useBalance must be used within a BalanceProvider");
   }
   return context;
 }

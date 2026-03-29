@@ -1,31 +1,39 @@
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Toast } from '@/components/toast';
-import { API_CONFIG, formatPhoneToE164 } from '@/config/api';
-import { Fonts } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { Toast } from "@/components/toast";
+import { API_CONFIG, formatPhoneToE164 } from "@/config/api";
+import { Fonts } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 // Mock mode - set to false to use actual API
 const MOCK_MODE = false;
 
 export default function LoginScreen() {
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [loading, setLoading] = useState(false);
   const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  
+  const [toastMessage, setToastMessage] = useState("");
+
   const colorScheme = useColorScheme();
   const router = useRouter();
 
   const formatPhoneNumber = (text: string) => {
-    const cleaned = text.replace(/\D/g, '');
+    const cleaned = text.replace(/\D/g, "");
     const match = cleaned.match(/^(\d{0,3})(\d{0,3})(\d{0,4})$/);
     if (match) {
-      const formatted = [match[1], match[2], match[3]].filter(Boolean).join('-');
+      const formatted = [match[1], match[2], match[3]]
+        .filter(Boolean)
+        .join("-");
       return formatted;
     }
     return text;
@@ -37,10 +45,10 @@ export default function LoginScreen() {
   };
 
   const handleSendCode = async () => {
-    const cleaned = phoneNumber.replace(/\D/g, '');
-    
+    const cleaned = phoneNumber.replace(/\D/g, "");
+
     if (cleaned.length !== 10) {
-      setToastMessage('Please enter a valid 10-digit phone number');
+      setToastMessage("Please enter a valid 10-digit phone number");
       setShowToast(true);
       return;
     }
@@ -49,15 +57,15 @@ export default function LoginScreen() {
 
     if (MOCK_MODE) {
       // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       setLoading(false);
-      
+
       // Navigate to verification screen
       router.push({
-        pathname: '/verify-sms',
+        pathname: "/verify-sms",
         params: {
           phoneNumber: cleaned,
-          flow: 'login',
+          flow: "login",
         },
       });
     } else {
@@ -65,40 +73,45 @@ export default function LoginScreen() {
         const e164Phone = formatPhoneToE164(cleaned);
         const url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.REQUEST_CODE}`;
         const body = { mobileNumber: e164Phone };
-        
-        console.log('Sending request to:', url);
-        console.log('Request body:', body);
-        
+
+        console.log("Sending request to:", url);
+        console.log("Request body:", body);
+
         const response = await fetch(url, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify(body),
         });
 
         if (!response.ok) {
           const errorData = await response.json();
-          console.error('Request code error response:', errorData);
-          throw new Error(errorData.message || `Failed to send code (${response.status})`);
+          console.error("Request code error response:", errorData);
+          throw new Error(
+            errorData.message || `Failed to send code (${response.status})`,
+          );
         }
 
         setLoading(false);
         router.push({
-          pathname: '/verify-sms',
+          pathname: "/verify-sms",
           params: {
             phoneNumber: e164Phone,
           },
         });
       } catch (error) {
-        console.error('Send code error:', error);
-        setToastMessage(error instanceof Error ? error.message : 'Failed to send verification code. Please try again.');
+        console.error("Send code error:", error);
+        setToastMessage(
+          error instanceof Error
+            ? error.message
+            : "Failed to send verification code. Please try again.",
+        );
         setShowToast(true);
         setLoading(false);
       }
     }
   };
-
 
   return (
     <ThemedView style={styles.container}>
@@ -112,7 +125,8 @@ export default function LoginScreen() {
       <View style={styles.content}>
         <ThemedText
           type="title"
-          style={[styles.title, { fontFamily: Fonts.rounded }]}>
+          style={[styles.title, { fontFamily: Fonts.rounded }]}
+        >
           Welcome to TipSlap
         </ThemedText>
         <ThemedText style={styles.subtitle}>
@@ -125,9 +139,9 @@ export default function LoginScreen() {
             style={[
               styles.input,
               {
-                backgroundColor: colorScheme === 'dark' ? '#1c1c1e' : '#ffffff',
-                color: colorScheme === 'dark' ? '#ffffff' : '#000000',
-                borderColor: colorScheme === 'dark' ? '#3a3a3c' : '#e5e5e7',
+                backgroundColor: colorScheme === "dark" ? "#1c1c1e" : "#ffffff",
+                color: colorScheme === "dark" ? "#ffffff" : "#000000",
+                borderColor: colorScheme === "dark" ? "#3a3a3c" : "#e5e5e7",
               },
             ]}
             placeholder="555-123-4567"
@@ -143,7 +157,8 @@ export default function LoginScreen() {
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
           onPress={handleSendCode}
-          disabled={loading}>
+          disabled={loading}
+        >
           {loading ? (
             <ActivityIndicator color="#ffffff" />
           ) : (
@@ -170,22 +185,22 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 34,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   subtitle: {
     fontSize: 16,
     opacity: 0.6,
     marginBottom: 48,
-    textAlign: 'center',
+    textAlign: "center",
   },
   formGroup: {
     marginBottom: 24,
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 8,
     opacity: 0.8,
   },
@@ -197,24 +212,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   button: {
-    backgroundColor: '#635BFF',
+    backgroundColor: "#635BFF",
     borderRadius: 12,
     paddingVertical: 18,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 8,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   helpText: {
     fontSize: 14,
     opacity: 0.6,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 16,
     paddingHorizontal: 20,
   },
