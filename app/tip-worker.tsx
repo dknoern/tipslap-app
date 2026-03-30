@@ -1,15 +1,24 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useState } from "react";
+import {
+    ActivityIndicator,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
 
-import { Avatar } from '@/components/avatar';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Toast } from '@/components/toast';
-import { Fonts } from '@/constants/theme';
-import { useBalance } from '@/contexts/balance-context';
-import { useHistory } from '@/contexts/history-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Avatar } from "@/components/avatar";
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { Toast } from "@/components/toast";
+import { API_CONFIG } from "@/config/api";
+import { Fonts } from "@/constants/theme";
+import { useAuth } from "@/contexts/auth-context";
+import { useBalance } from "@/contexts/balance-context";
+import { useHistory } from "@/contexts/history-context";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 const TIP_AMOUNTS = [1, 2, 5, 10, 20];
 
@@ -17,61 +26,158 @@ export default function TipWorkerScreen() {
   const params = useLocalSearchParams();
   const router = useRouter();
   const colorScheme = useColorScheme();
+  const { user } = useAuth();
   const { balance, deductBalance } = useBalance();
   const { addTransaction } = useHistory();
-  
-  const [selectedAmount, setSelectedAmount] = useState<number | null>(1);
-  const [customAmount, setCustomAmount] = useState('');
-  const [note, setNote] = useState('');
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
 
+  const [selectedAmount, setSelectedAmount] = useState<number | null>(1);
+  const [customAmount, setCustomAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState<"success" | "error">("success");
+  const [loading, setLoading] = useState(false);
+
+  const receiverIdParam = params.receiverId as string | undefined;
   const workerName = params.name as string;
   const workerUsername = params.username as string;
   const workerAvatar = (params.avatar as string) || null;
-  
-  console.log('Tip worker params:', { workerName, workerUsername, workerAvatar });
 
-  const handleTipAmountSelect = (amount: number | 'custom') => {
-    if (amount === 'custom') {
+  console.log("Tip worker params:", {
+    workerName,
+    workerUsername,
+    workerAvatar,
+  });
+
+  const resolveReceiverId = async (): Promise<string> => {
+    if (receiverIdParam) return receiverIdParam;
+
+    if (!workerUsername) {
+      throw new Error("Missing recipient");
+    }
+
+    const alias = workerUsername.startsWith("@")
+      ? workerUsername.slice(1)
+      : workerUsername;
+    const response = await fetch(
+      `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.SEARCH_USERS}?q=${encodeURIComponent(alias)}&limit=1`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${user?.token}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to load recipient");
+    }
+
+    const responseData = await response.json();
+    const users = responseData.data || [];
+    const firstUser = users[0];
+    const resolvedId = firstUser?.id;
+    if (!resolvedId) {
+      throw new Error("Recipient not found");
+    }
+
+    return resolvedId;
+  };
+
+  const createTipTransaction = async (
+    receiverId: string,
+    amount: number,
+    description: string,
+  ) => {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/transactions/tip`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${user?.token}`,
+      },
+      body: JSON.stringify({
+        receiverId,
+        amount,
+        description,
+      }),
+    });
+
+    if (!response.ok) {
+      let message = "Failed to send tip";
+      try {
+        const errorData = await response.json();
+        message = errorData.message || errorData.error || message;
+      } catch {
+        // ignore
+      }
+      throw new Error(message);
+    }
+
+    return response.json();
+  };
+
+  const handleTipAmountSelect = (amount: number | "custom") => {
+    if (amount === "custom") {
       setSelectedAmount(null);
     } else {
       setSelectedAmount(amount);
-      setCustomAmount('');
+      setCustomAmount("");
     }
   };
 
-  const handleSendTip = () => {
+  const handleSendTip = async () => {
     const tipAmount = selectedAmount || parseFloat(customAmount);
-    
+
     if (!tipAmount || tipAmount <= 0 || isNaN(tipAmount)) {
-      setToastMessage('Please enter a valid tip amount');
+      setToastMessage("Please enter a valid tip amount");
+      setToastType("error");
       setShowToast(true);
       return;
     }
-    
+
     if (tipAmount > balance) {
-      setToastMessage('Insufficient balance');
+      setToastMessage("Insufficient balance");
+      setToastType("error");
       setShowToast(true);
       return;
     }
-    
-    deductBalance(tipAmount);
-    
-    addTransaction({
-      name: workerName,
-      username: workerUsername,
-      amount: -tipAmount,
-      avatar: workerAvatar || '',
-      type: 'tip',
-    });
-    
-    setToastMessage(`$${tipAmount.toFixed(2)} tip sent to ${workerName}!`);
-    setShowToast(true);
-    
-    setTimeout(() => {
-      router.push('/(tabs)');
-    }, 1500);
+
+    if (!user?.token) {
+      setToastMessage("You must be logged in to send a tip");
+      setToastType("error");
+      setShowToast(true);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const receiverId = await resolveReceiverId();
+      await createTipTransaction(receiverId, tipAmount, note);
+
+      deductBalance(tipAmount);
+      addTransaction({
+        name: workerName,
+        username: workerUsername,
+        amount: -tipAmount,
+        avatar: workerAvatar || "",
+        type: "tip",
+      });
+
+      setToastMessage(`$${tipAmount.toFixed(2)} tip sent to ${workerName}!`);
+      setToastType("success");
+      setShowToast(true);
+
+      setTimeout(() => {
+        router.push("/(tabs)");
+      }, 1500);
+    } catch (error: any) {
+      setToastMessage(error?.message || "Failed to send tip");
+      setToastType("error");
+      setShowToast(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getTipAmount = () => {
@@ -85,10 +191,13 @@ export default function TipWorkerScreen() {
       <Toast
         visible={showToast}
         message={toastMessage}
-        type="success"
+        type={toastType}
         onHide={() => setShowToast(false)}
       />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <Avatar uri={workerAvatar} name={workerName} size={120} />
           <ThemedText style={[styles.name, { fontFamily: Fonts.rounded }]}>
@@ -96,7 +205,6 @@ export default function TipWorkerScreen() {
           </ThemedText>
           <ThemedText style={styles.username}>{workerUsername}</ThemedText>
         </View>
-
 
         <View style={styles.tipSection}>
           <View style={styles.tipGrid}>
@@ -106,16 +214,32 @@ export default function TipWorkerScreen() {
                 style={[
                   styles.tipButton,
                   {
-                    backgroundColor: colorScheme === 'dark' ? '#1c1c1e' : '#ffffff',
-                    borderColor: selectedAmount === amount ? '#007AFF' : (colorScheme === 'dark' ? '#3a3a3c' : '#e5e5e7'),
+                    backgroundColor:
+                      colorScheme === "dark" ? "#1c1c1e" : "#ffffff",
+                    borderColor:
+                      selectedAmount === amount
+                        ? "#007AFF"
+                        : colorScheme === "dark"
+                          ? "#3a3a3c"
+                          : "#e5e5e7",
                     borderWidth: selectedAmount === amount ? 2 : 1,
                   },
                 ]}
-                onPress={() => handleTipAmountSelect(amount)}>
-                <ThemedText style={[
-                  styles.tipButtonText,
-                  { color: selectedAmount === amount ? '#007AFF' : (colorScheme === 'dark' ? '#ffffff' : '#000000') }
-                ]}>
+                onPress={() => handleTipAmountSelect(amount)}
+              >
+                <ThemedText
+                  style={[
+                    styles.tipButtonText,
+                    {
+                      color:
+                        selectedAmount === amount
+                          ? "#007AFF"
+                          : colorScheme === "dark"
+                            ? "#ffffff"
+                            : "#000000",
+                    },
+                  ]}
+                >
                   ${amount}
                 </ThemedText>
               </TouchableOpacity>
@@ -124,16 +248,32 @@ export default function TipWorkerScreen() {
               style={[
                 styles.tipButton,
                 {
-                  backgroundColor: colorScheme === 'dark' ? '#1c1c1e' : '#ffffff',
-                  borderColor: selectedAmount === null ? '#007AFF' : (colorScheme === 'dark' ? '#3a3a3c' : '#e5e5e7'),
+                  backgroundColor:
+                    colorScheme === "dark" ? "#1c1c1e" : "#ffffff",
+                  borderColor:
+                    selectedAmount === null
+                      ? "#007AFF"
+                      : colorScheme === "dark"
+                        ? "#3a3a3c"
+                        : "#e5e5e7",
                   borderWidth: selectedAmount === null ? 2 : 1,
                 },
               ]}
-              onPress={() => handleTipAmountSelect('custom')}>
-              <ThemedText style={[
-                styles.tipButtonText,
-                { color: selectedAmount === null ? '#007AFF' : (colorScheme === 'dark' ? '#ffffff' : '#000000') }
-              ]}>
+              onPress={() => handleTipAmountSelect("custom")}
+            >
+              <ThemedText
+                style={[
+                  styles.tipButtonText,
+                  {
+                    color:
+                      selectedAmount === null
+                        ? "#007AFF"
+                        : colorScheme === "dark"
+                          ? "#ffffff"
+                          : "#000000",
+                  },
+                ]}
+              >
                 Custom
               </ThemedText>
             </TouchableOpacity>
@@ -144,9 +284,10 @@ export default function TipWorkerScreen() {
               style={[
                 styles.customInput,
                 {
-                  backgroundColor: colorScheme === 'dark' ? '#1c1c1e' : '#f2f2f7',
-                  color: colorScheme === 'dark' ? '#ffffff' : '#000000',
-                  borderColor: colorScheme === 'dark' ? '#3a3a3c' : '#e5e5e7',
+                  backgroundColor:
+                    colorScheme === "dark" ? "#1c1c1e" : "#f2f2f7",
+                  color: colorScheme === "dark" ? "#ffffff" : "#000000",
+                  borderColor: colorScheme === "dark" ? "#3a3a3c" : "#e5e5e7",
                 },
               ]}
               placeholder="Enter custom amount"
@@ -162,9 +303,9 @@ export default function TipWorkerScreen() {
           style={[
             styles.noteInput,
             {
-              backgroundColor: colorScheme === 'dark' ? '#1c1c1e' : '#f2f2f7',
-              color: colorScheme === 'dark' ? '#ffffff' : '#000000',
-              borderColor: colorScheme === 'dark' ? '#3a3a3c' : '#e5e5e7',
+              backgroundColor: colorScheme === "dark" ? "#1c1c1e" : "#f2f2f7",
+              color: colorScheme === "dark" ? "#ffffff" : "#000000",
+              borderColor: colorScheme === "dark" ? "#3a3a3c" : "#e5e5e7",
             },
           ]}
           placeholder="Add a note (optional)"
@@ -176,10 +317,16 @@ export default function TipWorkerScreen() {
 
         <TouchableOpacity
           style={styles.sendButton}
-          onPress={handleSendTip}>
-          <ThemedText style={styles.sendButtonText}>
-            Send ${getTipAmount()} Tip
-          </ThemedText>
+          onPress={handleSendTip}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <ThemedText style={styles.sendButtonText}>
+              Send ${getTipAmount()} Tip
+            </ThemedText>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </ThemedView>
@@ -196,23 +343,23 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 32,
     gap: 16,
   },
   name: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 4,
-    textAlign: 'center',
+    textAlign: "center",
   },
   username: {
     fontSize: 18,
     opacity: 0.6,
-    textAlign: 'center',
+    textAlign: "center",
   },
   qrSection: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 32,
   },
   qrLabel: {
@@ -224,8 +371,8 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 12,
   },
   qrText: {
@@ -235,27 +382,27 @@ const styles = StyleSheet.create({
   qrSubtext: {
     fontSize: 14,
     opacity: 0.6,
-    textAlign: 'center',
+    textAlign: "center",
   },
   tipSection: {
     marginBottom: 24,
   },
   tipGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
     marginBottom: 16,
   },
   tipButton: {
-    width: '30%',
+    width: "30%",
     aspectRatio: 2.5,
     borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   tipButtonText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginVertical: 8,
   },
   customInput: {
@@ -273,17 +420,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 24,
     minHeight: 80,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   sendButton: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: "#1a1a2e",
     borderRadius: 12,
     paddingVertical: 18,
-    alignItems: 'center',
+    alignItems: "center",
   },
   sendButtonText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

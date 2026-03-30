@@ -1,17 +1,25 @@
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { CameraView, useCameraPermissions } from "expo-camera";
+import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    FlatList,
+    Modal,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
 
-import { Avatar } from '@/components/avatar';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Toast } from '@/components/toast';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { API_CONFIG } from '@/config/api';
-import { Fonts } from '@/constants/theme';
-import { useAuth } from '@/contexts/auth-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Avatar } from "@/components/avatar";
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { Toast } from "@/components/toast";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { API_CONFIG } from "@/config/api";
+import { Fonts } from "@/constants/theme";
+import { useAuth } from "@/contexts/auth-context";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 interface Worker {
   id: string;
@@ -21,12 +29,12 @@ interface Worker {
 }
 
 export default function TipScreen() {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
+  const [toastMessage, setToastMessage] = useState("");
   const [permission, requestPermission] = useCameraPermissions();
   const { user } = useAuth();
   const colorScheme = useColorScheme();
@@ -51,37 +59,37 @@ export default function TipScreen() {
       const response = await fetch(
         `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.SEARCH_USERS}?q=${encodeURIComponent(query)}&limit=20`,
         {
-          method: 'GET',
+          method: "GET",
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${user?.token}`,
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${user?.token}`,
           },
-        }
+        },
       );
 
       if (!response.ok) {
-        throw new Error('Failed to search users');
+        throw new Error("Failed to search users");
       }
 
       const responseData = await response.json();
-      console.log('Search API response:', responseData);
-      
+      console.log("Search API response:", responseData);
+
       // API returns users directly in data array
       const users = responseData.data || [];
-      console.log('Extracted users:', users);
-      
+      console.log("Extracted users:", users);
+
       const searchResults = users.map((u: any) => ({
         id: u.id,
         name: u.fullName,
         username: `@${u.alias}`,
         avatar: u.avatarUrl || null,
       }));
-      
-      console.log('Mapped search results:', searchResults);
+
+      console.log("Mapped search results:", searchResults);
       setWorkers(searchResults);
     } catch (error) {
-      console.error('Search error:', error);
-      setToastMessage('Failed to search users');
+      console.error("Search error:", error);
+      setToastMessage("Failed to search users");
       setShowToast(true);
     } finally {
       setLoading(false);
@@ -90,11 +98,12 @@ export default function TipScreen() {
 
   const handleWorkerPress = (worker: Worker) => {
     router.push({
-      pathname: '/tip-worker',
+      pathname: "/tip-worker",
       params: {
+        receiverId: worker.id,
         name: worker.name,
         username: worker.username,
-        avatar: worker.avatar || '',
+        avatar: worker.avatar || "",
       },
     });
   };
@@ -107,7 +116,7 @@ export default function TipScreen() {
     if (!permission.granted) {
       const result = await requestPermission();
       if (!result.granted) {
-        setToastMessage('Camera permission is required to scan QR codes');
+        setToastMessage("Camera permission is required to scan QR codes");
         setShowToast(true);
         return;
       }
@@ -122,16 +131,16 @@ export default function TipScreen() {
     // Extract username from QR code URL (e.g., "tipslap://tip/@dknoern")
     const match = data.match(/tipslap:\/\/tip\/(@[\w]+)/);
     if (!match) {
-      setToastMessage('Invalid QR code');
+      setToastMessage("Invalid QR code");
       setShowToast(true);
       return;
     }
 
     const username = match[1];
-    
+
     // Navigate directly with the scanned username
     router.push({
-      pathname: '/tip-worker',
+      pathname: "/tip-worker",
       params: {
         username: username,
       },
@@ -140,7 +149,10 @@ export default function TipScreen() {
 
   const renderWorker = ({ item }: { item: Worker }) => {
     return (
-      <TouchableOpacity style={styles.workerItem} onPress={() => handleWorkerPress(item)}>
+      <TouchableOpacity
+        style={styles.workerItem}
+        onPress={() => handleWorkerPress(item)}
+      >
         <View style={styles.avatarContainer}>
           <Avatar uri={item.avatar} name={item.name} size={56} />
         </View>
@@ -164,7 +176,8 @@ export default function TipScreen() {
 
       <ThemedText
         type="title"
-        style={[styles.title, { fontFamily: Fonts.rounded }]}>
+        style={[styles.title, { fontFamily: Fonts.rounded }]}
+      >
         Tip a Worker
       </ThemedText>
 
@@ -172,15 +185,16 @@ export default function TipScreen() {
         style={[
           styles.searchContainer,
           {
-            backgroundColor: colorScheme === 'dark' ? '#1c1c1e' : '#f2f2f7',
+            backgroundColor: colorScheme === "dark" ? "#1c1c1e" : "#f2f2f7",
           },
-        ]}>
+        ]}
+      >
         <IconSymbol name="magnifyingglass" size={20} color="#999" />
         <TextInput
           style={[
             styles.searchInput,
             {
-              color: colorScheme === 'dark' ? '#ffffff' : '#000000',
+              color: colorScheme === "dark" ? "#ffffff" : "#000000",
             },
           ]}
           placeholder="Search by name, username, or role"
@@ -195,7 +209,9 @@ export default function TipScreen() {
 
       {searchQuery.trim().length > 0 && (
         <ThemedText style={styles.sectionTitle}>
-          {loading ? 'Searching...' : `${workers.length} ${workers.length === 1 ? 'result' : 'results'}`}
+          {loading
+            ? "Searching..."
+            : `${workers.length} ${workers.length === 1 ? "result" : "results"}`}
         </ThemedText>
       )}
 
@@ -214,7 +230,9 @@ export default function TipScreen() {
             searchQuery.trim().length > 0 ? (
               <ThemedText style={styles.emptyText}>No users found</ThemedText>
             ) : (
-              <ThemedText style={styles.emptyText}>Search for users by name or alias</ThemedText>
+              <ThemedText style={styles.emptyText}>
+                Search for users by name or alias
+              </ThemedText>
             )
           }
         />
@@ -223,20 +241,23 @@ export default function TipScreen() {
       <Modal
         visible={showScanner}
         animationType="slide"
-        onRequestClose={() => setShowScanner(false)}>
+        onRequestClose={() => setShowScanner(false)}
+      >
         <View style={styles.scannerContainer}>
           <CameraView
             style={styles.camera}
             facing="back"
             onBarcodeScanned={handleBarCodeScanned}
             barcodeScannerSettings={{
-              barcodeTypes: ['qr'],
-            }}>
+              barcodeTypes: ["qr"],
+            }}
+          >
             <View style={styles.scannerOverlay}>
               <View style={styles.scannerHeader}>
                 <TouchableOpacity
                   style={styles.closeButton}
-                  onPress={() => setShowScanner(false)}>
+                  onPress={() => setShowScanner(false)}
+                >
                   <ThemedText style={styles.closeButtonText}>Cancel</ThemedText>
                 </TouchableOpacity>
               </View>
@@ -262,13 +283,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 34,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 24,
-    textAlign: 'center',
+    textAlign: "center",
   },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -281,7 +302,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 16,
   },
   workerList: {
@@ -291,11 +312,11 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   workerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E7',
+    borderBottomColor: "#E5E5E7",
   },
   avatarContainer: {
     marginRight: 16,
@@ -305,7 +326,7 @@ const styles = StyleSheet.create({
   },
   workerName: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 4,
   },
   workerUsername: {
@@ -315,25 +336,25 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingTop: 60,
   },
   emptyText: {
-    textAlign: 'center',
+    textAlign: "center",
     opacity: 0.6,
     marginTop: 40,
   },
   scannerContainer: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: "#000000",
   },
   camera: {
     flex: 1,
   },
   scannerOverlay: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   scannerHeader: {
     paddingTop: 60,
@@ -341,29 +362,29 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   closeButton: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
   },
   closeButtonText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   scannerFrame: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   scannerCorner: {
     width: 250,
     height: 250,
     borderWidth: 2,
-    borderColor: '#ffffff',
+    borderColor: "#ffffff",
     borderRadius: 12,
   },
   scannerText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 18,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 100,
   },
 });
